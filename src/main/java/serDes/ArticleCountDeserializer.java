@@ -1,6 +1,7 @@
-package model;
+package serDes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import model.ArticleCount;
 import org.apache.kafka.common.serialization.Deserializer;
 
 import java.util.Map;
@@ -18,7 +19,6 @@ public class ArticleCountDeserializer implements Deserializer<ArticleCount> {
         try {
             articleCount = mapper.readValue(bytes, ArticleCount.class);
         } catch (Exception e) {
-
             e.printStackTrace();
         }
         return articleCount;

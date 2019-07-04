@@ -7,9 +7,9 @@ import java.io.Serializable;
 public class ArticleCount implements Serializable {
 
     private String articleId;
-    private int count;
+    private long count;
 
-    public ArticleCount(String articleId, int count) {
+    public ArticleCount(String articleId, long count) {
         this.articleId = articleId;
         this.count = count;
     }
@@ -25,7 +25,7 @@ public class ArticleCount implements Serializable {
         this.articleId = articleId;
     }
 
-    public int getCount() {
+    public long getCount() {
         return count;
     }
 
@@ -33,5 +33,8 @@ public class ArticleCount implements Serializable {
         this.count = count;
     }
 
-
+    @Override
+    public String toString() {
+        return "articleID: "+this.articleId;
+    }
 }

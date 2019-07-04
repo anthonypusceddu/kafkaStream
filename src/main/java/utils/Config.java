@@ -14,4 +14,5 @@ public class Config {
     public static String OutTOPIC = "out";
     public static double wa = 0.3; // peso dei like
     public static double wb = 0.7; // peso dei commenti indiretti
+    public static int topN = 10;
 }

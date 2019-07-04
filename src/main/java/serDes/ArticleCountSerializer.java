@@ -1,6 +1,7 @@
-package model;
+package serDes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import model.ArticleCount;
 import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;

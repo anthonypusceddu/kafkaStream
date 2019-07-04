@@ -1,6 +1,7 @@
-package model;
+package serDes;
 
 
+import model.ArticleCount;
 import org.apache.kafka.common.serialization.Serializer;
 import utils.SerDes;
 
@@ -34,7 +35,7 @@ public class ArrayListSerializer implements Serializer<ArrayList<ArticleCount>> 
                 dos.write(bytes);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Unable to serialize ArrayList", e);
+            throw new RuntimeException("Unable to serDes ArrayList", e);
         }
         return baos.toByteArray();
     }

@@ -9,17 +9,17 @@ import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
-import org.apache.kafka.streams.processor.ProcessorContext;
-import scala.Tuple2;
+import serDes.*;
 import utils.Config;
 import utils.MyEventTimeExtractor;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 
 import static java.time.Duration.ofMinutes;
-import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
 
 public class MainQuery1 {
 
@@ -34,89 +34,66 @@ public class MainQuery1 {
 
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
 
+
+        Serde<Windowed<String>> windowedStringSerde = WindowedSerdes.timeWindowedSerdeFrom(String.class);
+
+        Comparator<ArticleCount> byCount = Comparator.comparingLong(ArticleCount::getCount);
+
         StreamsBuilder builder = new StreamsBuilder();
 
         KStream<Long, Post> source = builder.stream(Config.TOPIC,
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
-        KStream<Windowed<String>, Long> counts = source
+        KTable<Windowed<String>, Long> counts = source
                 .map((k, v) -> KeyValue.pair(v.getArticleId(), 1))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
-                .count()
-                .toStream();
+                .count();
 
+        KTable<Long, PriorityQueue<ArticleCount>> aggregate = counts
+                .groupBy((w, c) -> new KeyValue<>(w.window().start(), new ArticleCount(w.key(), c))
+                        , Grouped.with(Serdes.Long(), Serdes.serdeFrom(new ArticleCountSerializer(), new ArticleCountDeserializer()))
+                )
+                .aggregate(
+                        () -> new PriorityQueue<>(byCount),
 
+                        (windowedString, articleCount, queue) -> {
+                            queue.add(articleCount);
+                            return queue;
+                        },
 
+                        (windowedString, articleCount, queue) -> {
+                            queue.remove(articleCount);
+                            return queue;
+                        },
+                        Materialized.with(Serdes.Long(), new PriorityQueueSerde<>(byCount, new ArticleCountSerializer(), new ArticleCountDeserializer())));
 
-        KGroupedStream<Long, Integer> aggregate = counts
-                .map((w, c) -> KeyValue.pair(w.window().start(),1))
-                .groupByKey(Grouped.with(Serdes.Long(),Serdes.Integer()));
-
-        aggregate.reduce(new Reducer<Integer>() {
+       /* aggregate.toStream().foreach(new ForeachAction<Long, PriorityQueue<ArticleCount>>() {
             @Override
-            public Integer apply(Integer integer, Integer v1) {
-                System.out.println("intero1: " + integer + "\t Intero2: " + v1);
-                return  integer+v1;
+            public void apply(Long key, PriorityQueue<ArticleCount> articleCounts) {
+                System.out.println("key: "+ key+"\tlista: "+ articleCounts.toString());
             }
-        });
-                //.windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
-                /*.aggregate(new Initializer<ArrayList<ArticleCount>>() {
-                    @Override
-                    public ArrayList<ArticleCount> apply() {
-                        return new ArrayList<>();
+        });*/
+
+        KTable<Long, String> topViewCounts = aggregate
+                .mapValues(queue -> {
+                    final StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < Config.topN; i++) {
+                        ArticleCount record = queue.poll();
+                        if (record == null) {
+                            break;
+                        }
+                        sb.append(record.getArticleId());
+                        sb.append("\n");
                     }
-                }, new Aggregator<Long, ArticleCount, ArrayList<ArticleCount>>() {
-                    @Override
-                    public ArrayList<ArticleCount> apply(Long aLong, ArticleCount articleCount, ArrayList<ArticleCount> articleCounts) {
-                        articleCounts.add(articleCount);
-                        return articleCounts;
-                    }
-                }, Materialized.with(Serdes.Long(), Serdes.serdeFrom(new ArrayListSerializer(), new ArrayListDeserializer())));
-
-
-*/
-
-
-                /*.groupBy(new KeyValueMapper<Windowed<String>, Long, KeyValue<Long, ArticleCount>>() {
-                             @Override
-                             public KeyValue<Long, ArticleCount> apply(Windowed<String> w, Long c) {
-                                 return KeyValue.pair(w.window().start(), new ArticleCount(w.key(), Math.toIntExact(c)));
-                             }
-                         },
-                        Grouped.with(Serdes.Long(), Serdes.serdeFrom(new ArticleCountSerializer(), new ArticleCountDeserializer())))
-                .
-        /*counts.toStream()
-                .foreach(new ForeachAction<Long, ArrayList<ArticleCount>>() {
-                    @Override
-                    public void apply(Long key, ArrayList<ArticleCount> articleCounts) {
-                        System.out.println("Finestra: "+key+"\t lista: "+articleCounts);
-                    }
+                    return sb.toString();
                 });
-*/
-        // need to override value serde to Long type
-        /*counts.toStream()
-                //.map((KeyValueMapper<Windowed<String>, Long, KeyValue<String, Long>>) (stringWindowed, v) -> KeyValue.pair(stringWindowed.key(),v))
-                // .print();
-                .foreach(new ForeachAction<Windowed<String>, Long>() {
-                    @Override
-                    public void apply(Windowed<String> windowedUserId, Long count) {
-                        System.out.println("Finestra: "+windowedUserId.window()+"\t ID: "+ windowedUserId.key()+"\t Count: " +count);
-                    }
-                });*/
 
-      /*  aggregate.toStream()
-                .foreach(new ForeachAction<Long, Long>() {
-                    @Override
-                    public void apply(Long key, Long aLong2) {
-                        System.out.println("Finestra: "+key+"\t count: "+aLong2);
+        topViewCounts.toStream().to(Config.OutTOPIC, Produced.with(Serdes.Long(), Serdes.String()));
 
-                    }
-                });*/
-                        //.to(Config.OutTOPIC, Produced.with(Serdes.String(), Serdes.Long()));
 
-                        KafkaStreams streams = new KafkaStreams(builder.build(), props);
+        KafkaStreams streams = new KafkaStreams(builder.build(), props);
         CountDownLatch latch = new CountDownLatch(1);
 
         // attach shutdown handler to catch control-c
@@ -137,24 +114,3 @@ public class MainQuery1 {
         System.exit(0);
     }
 }
-/*
-
-new Initializer<ArrayList<ArticleCount>>() {
-                    @Override
-                    public ArrayList<ArticleCount> apply() {
-                        return new ArrayList<>();
-                    }
-                }, new Aggregator<Long, ArticleCount, ArrayList<ArticleCount>>() {
-                    @Override
-                    public ArrayList<ArticleCount> apply(Long key, ArticleCount articleCount, ArrayList<ArticleCount> articleCounts) {
-                        articleCounts.add(articleCount);
-                        return articleCounts;
-                    }
-                }, new Aggregator<Long, ArticleCount, ArrayList<ArticleCount>>() {
-                    @Override
-                    public ArrayList<ArticleCount> apply(Long key, ArticleCount articleCount, ArrayList<ArticleCount> articleCounts) {
-                        return articleCounts;
-                    }
-                }, Materialized.with(Serdes.Long(), Serdes.serdeFrom(new ArrayListSerializer(), new ArrayListDeserializer())));
-
- */

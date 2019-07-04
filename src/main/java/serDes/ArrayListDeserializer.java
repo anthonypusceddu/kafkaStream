@@ -1,9 +1,7 @@
-package model;
+package serDes;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.header.Headers;
+import model.ArticleCount;
 import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import utils.SerDes;
 
 
