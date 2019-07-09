@@ -29,6 +29,7 @@ public class MainQuery1 {
         final Properties props= KafkaProperties.setProperties();
 
 
+        //serdes per la finestra
         Serde<Windowed<String>> windowedStringSerde = WindowedSerdes.timeWindowedSerdeFrom(String.class);
 
         Comparator<ArticleCount> byCount = Comparator.comparingLong(ArticleCount::getCount);
@@ -39,12 +40,23 @@ public class MainQuery1 {
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
+        /*
+          map to (articleID, occurrencies set to 1)
+          group by articleID
+          tumbling window with lateness set to 1 min
+          count the occurrencies
+         */
         KTable<Windowed<String>, Long> counts = source
                 .map((k, v) -> KeyValue.pair(v.getArticleId(), 1))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
                 .count();
 
+
+        /*
+          group by window
+          aggregate in priority queue already ordered
+         */
         KTable<Long, PriorityQueue<ArticleCount>> aggregate = counts
                 .groupBy((w, c) -> new KeyValue<>(w.window().start(), new ArticleCount(w.key(), c))
                         , Grouped.with(Serdes.Long(), Serdes.serdeFrom(new ArticleCountSerializer(), new ArticleCountDeserializer()))
@@ -70,6 +82,10 @@ public class MainQuery1 {
             }
         });*/
 
+
+       /*
+         map values to take the first 10 articleIDs
+        */
         KTable<Long, String> topViewCounts = aggregate
                 .mapValues(queue -> {
                     final StringBuilder sb = new StringBuilder();
@@ -84,7 +100,9 @@ public class MainQuery1 {
                     return sb.toString();
                 });
 
+
         topViewCounts.toStream().to(Config.OutTOPIC, Produced.with(Serdes.Long(), Serdes.String()));
+
 
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);

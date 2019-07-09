@@ -46,12 +46,20 @@ public class MainQuery2 {
                 .windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
                 .count();
 
-        count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
+
+        //TODO: change retention time to test 7 days and 1 month
+        count1H.toStream().to(Config.OutTOPIC, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
+
+
+        /*count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
             @Override
             public void apply(Windowed<Integer> integerWindowed, Long aLong) {
                 System.out.println(integerWindowed+"\t"+aLong);
             }
-        });
+        });*/
+
+
+
         /*KTable<Windowed<Integer>, Long> count24H = source
                 .filter(new Predicate<Long, Post>() {
                     @Override
