@@ -14,6 +14,7 @@ public class MyProcessFunction implements ProcessorSupplier {
 
     @Override
     public Processor get() {
+
         return new Processor() {
             private State valueState;
 
