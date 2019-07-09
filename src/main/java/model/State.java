@@ -35,7 +35,6 @@ public class State {
     }
 
     public State(Long timestamp) {
-        System.out.println("ciao");
         this.timestamp = timestamp;
         this.day=0;
         this.month=0;
