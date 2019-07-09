@@ -11,8 +11,10 @@ public class Config {
 
     public static String kafkaBrokerList = "localhost:9092";
     public static String consumerGroup = "consumer";
-    public static String OutTOPIC = "out";
+    public static String OutTOPIC1 = "out1";
+    public static String OutTOPIC2 = "out2";
+    public static String OutTOPIC3 = "out3";
     public static double wa = 0.3; // peso dei like
     public static double wb = 0.7; // peso dei commenti indiretti
-    public static int topN = 10;
+    public static int topN = 3;
 }

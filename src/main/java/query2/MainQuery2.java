@@ -29,7 +29,7 @@ public class MainQuery2 {
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
-        KTable<Windowed<Integer>, Long> count1H = source
+        KStream<Integer, Integer> filter = source
                 .filter(new Predicate<Long, Post>() {
                     @Override
                     public boolean test(Long aLong, Post post) {
@@ -41,14 +41,31 @@ public class MainQuery2 {
                     public KeyValue<Integer, Integer> apply(Long aLong, Post post) {
                         return new KeyValue<>(TimeSlot.getTimeSlot(post), 1);
                     }
-                })
+                });
+
+        KTable<Windowed<Integer>, Long> count1H = filter
                 .groupByKey()
-                .windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
+                .windowedBy(TimeWindows.of(Duration.ofHours(24)).until(86460000L).grace(ofMinutes(1)))
                 .count();
 
 
+        KTable<Windowed<Integer>, Long> count24H = filter
+                .groupByKey()
+                .windowedBy(TimeWindows.of(Duration.ofDays(7)).until(604860000L).grace(ofMinutes(1)))
+                .count();
+
+
+        KTable<Windowed<Integer>, Long> count7D = filter
+                .groupByKey()
+                .windowedBy(TimeWindows.of(Duration.ofDays(30)).until(2678460000L).grace(ofMinutes(1)))
+                .count();
+
+
+
         //TODO: change retention time to test 7 days and 1 month
-        count1H.toStream().to(Config.OutTOPIC, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
+        count1H.toStream().to(Config.OutTOPIC1, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
+        count24H.toStream().to(Config.OutTOPIC2, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
+        count7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
 
 
         /*count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
