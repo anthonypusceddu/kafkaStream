@@ -6,6 +6,7 @@ import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
 import scala.Tuple2;
 import scala.Tuple5;
+import scala.Tuple6;
 import utils.Config;
 
 import java.time.Duration;
@@ -22,7 +23,7 @@ public class MyProcessFunction implements ProcessorSupplier {
             private State valueState;
 
             private ProcessorContext context;
-            private KeyValueStore<Long, Tuple5<Integer, Integer, Integer, Integer, Integer>> kvStore;
+            private KeyValueStore<Long, Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> kvStore;
 
             @Override
             public void init(ProcessorContext processorContext) {
@@ -39,11 +40,11 @@ public class MyProcessFunction implements ProcessorSupplier {
 
                 //this.state = processorContext.getStateStore("myProcessorState");
                 // punctuate each second, can access this.state
-                processorContext.schedule(Duration.ofSeconds(1), PunctuationType.STREAM_TIME,(timestamp) -> {
+                processorContext.schedule(Duration.ofMillis(1), PunctuationType.STREAM_TIME,(timestamp) -> {
 
-                    KeyValueIterator<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> iter = this.kvStore.all();
+                    KeyValueIterator<Long, Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> iter = this.kvStore.all();
                     while (iter.hasNext()) {
-                        KeyValue<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> entry = iter.next();
+                        KeyValue<Long,Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> entry = iter.next();
                         processorContext.forward(entry.key, entry.value.toString());
                     }
                     iter.close();
@@ -55,11 +56,10 @@ public class MyProcessFunction implements ProcessorSupplier {
 
             @Override
             public void process(Object o, Object o2) {
-                Tuple5<Integer, Integer, Integer, Integer, Integer> app= (Tuple5<Integer, Integer, Integer, Integer, Integer>)o2;
-                Long newTimestamp= (Long) o;
-                System.out.println(app._2());
+                Tuple6<Integer, Integer, Integer, Integer, Integer,Long> app= (Tuple6<Integer, Integer, Integer, Integer, Integer,Long>)o2;
+                //System.out.println(app._2());
 
-
+                Long newTimestamp= app._6();
                 int usrID= app._1();
                 int commentId = app._5();
                 int replyTo = app._4();
@@ -95,9 +95,13 @@ public class MyProcessFunction implements ProcessorSupplier {
                         }
                         break;
                 }
+                //System.out.println("new time"+newTimestamp);
+                //System.out.println("ref"+valueState.getTimestamp());
                 if (newTimestamp-valueState.getTimestamp() >= Config.H24){
-                    List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow1());
                     System.out.println("PRIMO IF");
+
+                    List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow1());
+                    System.out.println(list);
 
                     valueState.joinHashmap();
                     valueState.resetWindow1(valueState.getTimestamp()+Config.H24);

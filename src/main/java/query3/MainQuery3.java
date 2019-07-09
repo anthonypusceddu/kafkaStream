@@ -11,6 +11,7 @@ import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
 import scala.Tuple5;
+import scala.Tuple6;
 import utils.AttachCtrlC;
 import utils.Config;
 import utils.KafkaProperties;
@@ -29,25 +30,25 @@ public class MainQuery3 {
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
-        KStream<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> stringInputStream = source
-                .mapValues(new ValueMapper< Post, Tuple5<Integer, Integer, Integer, Integer, Integer>>() {
+        KStream<Long,Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> stringInputStream = source
+                .mapValues(new ValueMapper< Post, Tuple6<Integer, Integer, Integer, Integer, Integer,Long>>() {
                     @Override
-                    public Tuple5<Integer, Integer, Integer, Integer, Integer> apply(Post post) {
+                    public Tuple6<Integer, Integer, Integer, Integer, Integer,Long> apply(Post post) {
 
                         if (post.isEditorsSelection() && post.getCommentType().equals("comment"))
                             post.setRecommendations(post.getRecommendations() + post.getRecommendations() * 10 / 100);
 
-                        return new Tuple5<Integer, Integer, Integer, Integer, Integer>(post.getUserID(), post.getDepth(), post.getRecommendations(), post.getInReplyTo(), post.getCommentID());
+                        return new Tuple6<Integer, Integer, Integer, Integer, Integer,Long>(post.getUserID(), post.getDepth(), post.getRecommendations(), post.getInReplyTo(), post.getCommentID(),post.getCreateDate());
 
 
                         //return new KeyValue<>(TimeSlot.getTimeSlot(post), 1);
                     }
                 });
 
-        KStream<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> out= stringInputStream
-                .filter(new Predicate<Long, Tuple5<Integer, Integer, Integer, Integer, Integer>>() {
+        KStream<Long,Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> out= stringInputStream
+                .filter(new Predicate<Long, Tuple6<Integer, Integer, Integer, Integer, Integer,Long>>() {
                     @Override
-                    public boolean test(Long l,Tuple5<Integer, Integer, Integer, Integer, Integer> tuple ) {
+                    public boolean test(Long l,Tuple6<Integer, Integer, Integer, Integer, Integer,Long> tuple ) {
                         if(tuple._1()!= -1 && tuple._2()!=-1)
                             return  true;
                         return false;
@@ -63,7 +64,7 @@ public class MainQuery3 {
             }
         });*/
         // create store
-        StoreBuilder<KeyValueStore<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>>> keyValueStoreBuilder =
+        StoreBuilder<KeyValueStore<Long,Tuple6<Integer, Integer, Integer, Integer, Integer,Long>>> keyValueStoreBuilder =
                 Stores.keyValueStoreBuilder(Stores.persistentKeyValueStore("myProcessorState"),
                         Serdes.Long(), Serdes.serdeFrom(new TupleSerializer(),new TupleDeserializer()));
         // register store
