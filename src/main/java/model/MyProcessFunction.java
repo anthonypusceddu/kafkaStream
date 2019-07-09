@@ -44,6 +44,7 @@ public class MyProcessFunction implements ProcessorSupplier {
 
                     KeyValueIterator<Long, Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> iter = this.kvStore.all();
                     while (iter.hasNext()) {
+
                         KeyValue<Long,Tuple6<Integer, Integer, Integer, Integer, Integer,Long>> entry = iter.next();
                         processorContext.forward(entry.key, entry.value.toString());
                     }
