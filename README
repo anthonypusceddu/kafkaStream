@@ -1,0 +1,5 @@
+Per avviare l'applicazione:
+
+avviare il docker compose "docker-compose.yml" nel percorso src/main/java/docker/kafka/
+
+avviare container redis
