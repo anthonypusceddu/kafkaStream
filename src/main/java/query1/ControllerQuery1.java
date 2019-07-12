@@ -31,7 +31,7 @@ import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded
 
 public class ControllerQuery1 {
     public static void main(final String[] args){
-        final Properties props = KafkaProperties.setProperties();
+        final Properties props = KafkaProperties.setProperties(1);
         StreamsBuilder builder = new StreamsBuilder();
 
         KStream<Long, Post> source = builder.stream(Config.TOPIC,

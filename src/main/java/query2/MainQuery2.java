@@ -19,7 +19,7 @@ import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded
 public class MainQuery2 {
 
     public static void main(final String[] args) {
-        final Properties props= KafkaProperties.setProperties();
+        final Properties props= KafkaProperties.setProperties(2);
 
         StreamsBuilder builder = new StreamsBuilder();
 
@@ -42,21 +42,21 @@ public class MainQuery2 {
                 });
 
         KTable<Windowed<Integer>, Long> count1H = filter
-                .groupByKey()
+                .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofHours(24)).until(86460000L).grace(ofMinutes(1)))
                 .count()
                 .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
         KTable<Windowed<Integer>, Long> count24H = filter
-                .groupByKey()
+                .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofDays(7)).until(604860000L).grace(ofMinutes(1)))
                 .count()
                 .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
         KTable<Windowed<Integer>, Long> count7D = filter
-                .groupByKey()
+                .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofDays(30)).until(2678460000L).grace(ofMinutes(1)))
                 .count()
                 .suppress(Suppressed.untilWindowCloses(unbounded()));
@@ -64,10 +64,10 @@ public class MainQuery2 {
 
 
         //TODO: change retention time to test 7 days and 1 month
-        count1H.toStream().to(Config.OutTOPIC1, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
+        /*count1H.toStream().to(Config.OutTOPIC1, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
         count24H.toStream().to(Config.OutTOPIC2, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
         count7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
-
+*/
         /*count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
             @Override
             public void apply(Windowed<Integer> integerWindowed, Long aLong) {

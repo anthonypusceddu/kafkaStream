@@ -18,7 +18,7 @@ import java.util.Properties;
 public class MainQuery3 {
 
     public static void main(final String[] args) {
-        final Properties props= KafkaProperties.setProperties();
+        final Properties props= KafkaProperties.setProperties(3);
 
 
         StreamsBuilder builder = new StreamsBuilder();
