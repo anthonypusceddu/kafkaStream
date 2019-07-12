@@ -3,18 +3,15 @@ package query2;
 import model.Post;
 import model.PostDeserializer;
 import model.PostSerializer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
 import utils.*;
 
 import java.time.Duration;
 import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
 
 import static java.time.Duration.ofMinutes;
 
@@ -67,15 +64,12 @@ public class MainQuery2 {
         count24H.toStream().to(Config.OutTOPIC2, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
         count7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
 
-
         /*count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
             @Override
             public void apply(Windowed<Integer> integerWindowed, Long aLong) {
                 System.out.println(integerWindowed+"\t"+aLong);
             }
         });*/
-
-
 
         /*KTable<Windowed<Integer>, Long> count24H = source
                 .filter(new Predicate<Long, Post>() {
@@ -93,8 +87,6 @@ public class MainQuery2 {
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofHours(24)).grace(ofMinutes(1)))
                 .count();*/
-
-
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         AttachCtrlC.attach(streams);

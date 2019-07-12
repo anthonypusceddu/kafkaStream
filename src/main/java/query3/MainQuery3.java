@@ -22,6 +22,8 @@ public class MainQuery3 {
 
 
         StreamsBuilder builder = new StreamsBuilder();
+
+
         KStream<Long, Post> source = builder.stream(Config.TOPIC,
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
@@ -58,9 +60,6 @@ public class MainQuery3 {
                         Serdes.Long(), Serdes.serdeFrom(new TupleSerializer(),new TupleDeserializer()));
         // register store
         builder.addStateStore(keyValueStoreBuilder);
-
-
-
 
         out.process(new MyProcessFunction(),"myProcessorState");
 

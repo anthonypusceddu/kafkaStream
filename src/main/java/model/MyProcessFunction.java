@@ -5,6 +5,9 @@ import org.apache.kafka.streams.state.KeyValueStore;
 import scala.Tuple5;
 import utils.Config;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -21,6 +24,11 @@ public class MyProcessFunction implements ProcessorSupplier {
             private ProcessorContext context;
             private KeyValueStore<Long, Tuple5<Integer, Integer, Integer, Integer, Integer>> kvStore;
 
+
+            private BufferedWriter bw1;
+            private BufferedWriter bw2;
+            private BufferedWriter bw3;
+
             @Override
             public void init(ProcessorContext processorContext) {
                 // keep the processor context locally because we need it in punctuate() and commit()
@@ -32,6 +40,17 @@ public class MyProcessFunction implements ProcessorSupplier {
                 kvStore = (KeyValueStore) processorContext.getStateStore("myProcessorState");
 
 
+                try {
+                    FileWriter writer1 = new FileWriter("result/Query3/query3_day.txt");
+                    FileWriter writer2 = new FileWriter("result/Query3/query3_week.txt");
+                    FileWriter writer3 = new FileWriter("result/Query3/query3_month.txt");
+                    bw1 = new BufferedWriter(writer1);
+                    bw2 = new BufferedWriter(writer2);
+                    bw3 = new BufferedWriter(writer3);
+                } catch (IOException e) {
+                    System.err.format("IOException: %s%n", e);
+                }
+
                 //this.state = processorContext.getStateStore("myProcessorState");
                 // punctuate each second, can access this.state
 
@@ -39,7 +58,7 @@ public class MyProcessFunction implements ProcessorSupplier {
 
             @Override
             public void process(Object o, Object o2) {
-                Tuple5<Integer, Integer, Integer, Integer, Integer> app= (Tuple5<Integer, Integer, Integer, Integer, Integer>)o2;
+                Tuple5<Integer, Integer, Integer, Integer, Integer> app= (Tuple5<Integer, Integer, Integer, Integer, Integer>)o2 ;
                 //System.out.println(app._2());
 
 
@@ -80,10 +99,22 @@ public class MyProcessFunction implements ProcessorSupplier {
                 }
                 //System.out.println("ref"+valueState.getTimestamp());
                 if (context.timestamp()-valueState.getTimestamp() >= Config.H24){
-                    System.out.println("PRIMO IF");
+                    //System.out.println("PRIMO IF");
 
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow1());
-                    System.out.println(list);
+                    //System.out.println(list);
+
+
+                    try {
+                        bw1.write(String.valueOf(context.timestamp()));
+                        bw1.write(list.toString());
+                        bw1.write("\n");
+                        bw1.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+
 
                     valueState.joinHashmap();
                     valueState.resetWindow1(valueState.getTimestamp()+Config.H24);
@@ -93,21 +124,35 @@ public class MyProcessFunction implements ProcessorSupplier {
                 if (valueState.getDay()==7){
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow2());
 
-                    System.out.println("SECONDO IF");
+                    //System.out.println("SECONDO IF");
+
+                    try {
+                        bw2.write(String.valueOf(context.timestamp()));
+                        bw2.write(list.toString());
+                        bw2.write("\n");
+                        bw2.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
                     valueState.resetWindow2();
                     valueState.setMonth(valueState.getMonth()+1);
                 }
                 if (valueState.getMonth()==4){
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow3());
-                    System.out.println("TERZO IF");
+                    //System.out.println("TERZO IF");
 
+                    try {
+                        bw3.write(String.valueOf(context.timestamp()));
+                        bw3.write(list.toString());
+                        bw3.write("\n");
+                        bw3.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     valueState.resetWindow3();
                 }
             }
-
-
-
-
             public List<HashMap<Integer,Score>> createRank(HashMap<Integer,Score> h){
                 List<HashMap<Integer, Score>> treeMap = new ArrayList<>();
 
@@ -131,7 +176,6 @@ public class MyProcessFunction implements ProcessorSupplier {
 
 
             }
-
             public void close() {
                 // can access this.state
             }

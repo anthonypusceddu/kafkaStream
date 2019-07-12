@@ -1,20 +1,40 @@
 package model;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.Serializable;
 
 public class ArticleCount implements Serializable {
 
-    private String articleId;
-    private long count;
+    private static final long serialVersionUID = 1L;
 
-    public ArticleCount(String articleId, long count) {
+    private long window;
+    private String articleId;
+    private long count = 0;
+
+    public ArticleCount(long window, String articleId, long count) {
+        this.window = window;
         this.articleId = articleId;
         this.count = count;
     }
 
     public ArticleCount() {
+    }
+
+
+    public long getCount() {
+        return count;
+    }
+
+    public void setCount(long count) {
+        this.count = count;
+    }
+
+    public long getWindow() {
+        return window;
+    }
+
+    public void setWindow(long window) {
+        this.window = window;
     }
 
     public String getArticleId() {
@@ -25,16 +45,8 @@ public class ArticleCount implements Serializable {
         this.articleId = articleId;
     }
 
-    public long getCount() {
-        return count;
-    }
-
-    public void setCount(int count) {
-        this.count = count;
-    }
-
     @Override
     public String toString() {
-        return "articleID: "+this.articleId;
+        return "articleID: "+this.articleId + "\tcount: "+this.count;
     }
 }

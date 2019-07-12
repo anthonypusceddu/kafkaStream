@@ -1,26 +1,36 @@
 package query1;
 
-import model.ArticleCount;
-import model.Post;
-import model.PostDeserializer;
-import model.PostSerializer;
+import model.*;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
+import org.apache.kafka.common.metrics.Metrics;
+import org.apache.kafka.common.metrics.Sensor;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.StreamsMetrics;
 import org.apache.kafka.streams.kstream.*;
+import serDes.*;
 import utils.AttachCtrlC;
 import utils.Config;
 import utils.KafkaProperties;
+import utils.SerDes;
 
+import java.lang.reflect.Array;
 import java.time.Duration;
-import java.util.Comparator;
-import java.util.Properties;
+import java.util.*;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Stream;
 
 import static java.time.Duration.ofMinutes;
+import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
 
 public class ControllerQuery1 {
-    public static void main(final String[] args) {
+    public static void main(final String[] args){
         final Properties props = KafkaProperties.setProperties();
         StreamsBuilder builder = new StreamsBuilder();
 
@@ -33,13 +43,33 @@ public class ControllerQuery1 {
           tumbling window with lateness set to 1 min
           count the occurrencies
          */
-        KTable<Windowed<String>, Long> counts1H = source
-                .map((k, v) -> KeyValue.pair(v.getArticleId(), 1))
-                .groupByKey()
-                .windowedBy(TimeWindows.of(Duration.ofHours(1)).grace(ofMinutes(1)))
-                .count();
 
-        KTable<Windowed<String>, Long> counts24H = source
+        KStream<Long, ArticleCount[]> Query1H = Query1.executeQuery(source, 1,3660000);
+        KStream<Long, ArticleCount[]> Query24H =Query1.executeQuery(source,24,86460000L);
+        KStream<Long, ArticleCount[]> Query7D = Query1.executeQuery(source,24*7,604860000L);
+
+        //counts1H.to(Config.OutTOPIC1, Produced.with(windowedLongSerde, Serdes.serdeFrom(new ArrayListSerializer(),new ArrayListDeserializer())));
+
+        Query1H.foreach(new ForeachAction<Long, ArticleCount[]>() {
+            @Override
+            public void apply(Long aLong, ArticleCount[] articleCounts) {
+                System.out.println("window: "+aLong+"\t"+ Arrays.toString(articleCounts));
+            }
+        });
+        Query24H.foreach(new ForeachAction<Long, ArticleCount[]>() {
+            @Override
+            public void apply(Long aLong, ArticleCount[] articleCounts) {
+                System.out.println("window: "+aLong+"\t"+ Arrays.toString(articleCounts));
+            }
+        });
+        Query7D.foreach(new ForeachAction<Long, ArticleCount[]>() {
+            @Override
+            public void apply(Long aLong, ArticleCount[] articleCounts) {
+                System.out.println("window: "+aLong+"\t"+ Arrays.toString(articleCounts));
+            }
+        });
+
+        /*KTable<Windowed<String>, Long> counts24H = source
                 .map((k, v) -> KeyValue.pair(v.getArticleId(), 1))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofHours(24)).until(86460000L).grace(ofMinutes(1)))
@@ -58,7 +88,7 @@ public class ControllerQuery1 {
         topViewCounts24H.toStream().to(Config.OutTOPIC2, Produced.with(Serdes.Long(), Serdes.String()));
 
         KTable<Long, String> topViewCounts7D = Query1.executeQuery(counts7Days);
-        topViewCounts7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.Long(), Serdes.String()));
+        topViewCounts7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.Long(), Serdes.String()));*/
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         AttachCtrlC.attach(streams);

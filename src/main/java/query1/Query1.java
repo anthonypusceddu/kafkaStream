@@ -6,62 +6,77 @@ import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.*;
 import serDes.*;
 import utils.Config;
+import utils.SerDes;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
+
+import static java.time.Duration.ofMinutes;
+import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
 
 public class Query1 {
 
-   public static KTable<Long, String> executeQuery(KTable<Windowed<String>, Long> counts){
+   public static KStream<Long, ArticleCount[]> executeQuery(KStream<Long, Post> source, int timeInHour, long until){
 
-       Comparator<ArticleCount> byCount = Comparator.comparingLong(ArticleCount::getCount);
-        /*
-          group by window
-          aggregate in priority queue already ordered
-         */
-       KTable<Long, PriorityQueue<ArticleCount>> aggregate = counts
-               .groupBy((w, c) -> new KeyValue<>(w.window().start(), new ArticleCount(w.key(), c))
-                       , Grouped.with(Serdes.Long(), Serdes.serdeFrom(new ArticleCountSerializer(), new ArticleCountDeserializer()))
-               )
-               .aggregate(
-                       () -> new PriorityQueue<>(byCount),
-
-                       (windowedString, articleCount, queue) -> {
-                           queue.add(articleCount);
-                           return queue;
-                       },
-
-                       (windowedString, articleCount, queue) -> {
-                           queue.remove(articleCount);
-                           return queue;
-                       },
-                       Materialized.with(Serdes.Long(), new PriorityQueueSerde<>(byCount, new ArticleCountSerializer(), new ArticleCountDeserializer())));
-
-       /* aggregate.toStream().foreach(new ForeachAction<Long, PriorityQueue<ArticleCount>>() {
-            @Override
-            public void apply(Long key, PriorityQueue<ArticleCount> articleCounts) {
-                System.out.println("key: "+ key+"\tlista: "+ articleCounts.toString());
-            }
-        });*/
-
-
-       /*
-         map values to take the first 10 articleIDs
-        */
-       KTable<Long, String> topViewCounts = aggregate
-               .mapValues(queue -> {
-                   final StringBuilder sb = new StringBuilder();
-                   for (int i = 0; i < Config.topN; i++) {
-                       ArticleCount record = queue.poll();
-                       if (record == null) {
-                           break;
-                       }
-                       sb.append(record.getArticleId());
-                       sb.append("\n");
+       KStream<Long, ArticleCount[]> counts = source
+               .map((k, v) -> KeyValue.pair(v.getArticleId(), 1L))
+               .groupByKey(Grouped.with(Serdes.String(), Serdes.Long()))
+               .windowedBy(TimeWindows.of(Duration.ofHours(timeInHour)).until(until).grace(ofMinutes(1)))
+               .reduce(Long::sum)
+               .suppress(Suppressed.untilWindowCloses(unbounded()))
+               .toStream()
+               .map(new KeyValueMapper<Windowed<String>, Long, KeyValue<Long, byte[]>>() {
+                   @Override
+                   public KeyValue<Long, byte[]> apply(Windowed<String> stringWindowed, Long aLong) {
+                       return KeyValue.pair(stringWindowed.window().start(), SerDes.serialize(new ArticleCount(stringWindowed.window().start(), stringWindowed.key(), aLong)));
                    }
-                   return sb.toString();
+               })
+               .groupByKey(Grouped.with(Serdes.Long(), Serdes.ByteArray()))
+               .windowedBy(TimeWindows.of(Duration.ofHours(timeInHour)).until(until))
+               .aggregate(new Initializer<byte[]>() {
+                   @Override
+                   public byte[] apply() {
+                       ArticleCount[] list = new ArticleCount[]{new ArticleCount(), new ArticleCount(), new ArticleCount()};
+                       return SerDes.serialize(list);
+                   }
+               }, new Aggregator<Long, byte[], byte[]>() {
+                   @Override
+                   public byte[] apply(Long aLong, byte[] article, byte[] articleList) {
+                       ArticleCount[] al = (ArticleCount[]) SerDes.deserialize(articleList);
+                       ArticleCount a = (ArticleCount) SerDes.deserialize(article);
+                       for (int i = 0; i < 3; i++) {
+                           if (al[i] == null) {
+                               al[i] = a;
+                               break;
+                           }
+                       }
+                       long newCount = a.getCount();
+                       if (newCount >= al[0].getCount()) {
+                           for (int j = 1; j < 3; j++) {
+                               al[j] = al[j - 1];
+                           }
+                           al[0] = a;
+                       } else if (newCount >= al[1].getCount()) {
+                           al[2] = al[1];
+                           al[1] = a;
+                       } else if (newCount >= al[2].getCount()) {
+                           al[2] = a;
+                       }
+                       return SerDes.serialize(al);
+                   }
+               })
+               .suppress(Suppressed.untilWindowCloses(unbounded())).toStream()
+               .map(new KeyValueMapper<Windowed<Long>, byte[], KeyValue<Long, ArticleCount[]>>() {
+                   @Override
+                   public KeyValue<Long, ArticleCount[]> apply(Windowed<Long> longWindowed, byte[] bytes) {
+                       return new KeyValue<>(longWindowed.key(), (ArticleCount[]) SerDes.deserialize(bytes));
+                   }
                });
 
-       return topViewCounts;
+       return counts;
 
    }
 
