@@ -18,16 +18,23 @@ import java.util.Properties;
 public class MainQuery3 {
 
     public static void main(final String[] args) {
+
+
         final Properties props= KafkaProperties.setProperties(3);
 
 
+        //streams builder
         StreamsBuilder builder = new StreamsBuilder();
 
 
+        //producer's serializer
         KStream<Long, Post> source = builder.stream(Config.TOPIC,
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
+        /*
+          mapValues to (userID, depth, likes, replyToUserID, commentID)
+         */
         KStream<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> stringInputStream = source
                 .mapValues(new ValueMapper< Post, Tuple5<Integer, Integer, Integer, Integer, Integer>>() {
                     @Override
@@ -43,6 +50,10 @@ public class MainQuery3 {
                     }
                 });
 
+
+        /*
+          filter not compliant tuples
+         */
         KStream<Long,Tuple5<Integer, Integer, Integer, Integer, Integer>> out= stringInputStream
                 .filter(new Predicate<Long, Tuple5<Integer, Integer, Integer, Integer, Integer>>() {
                     @Override

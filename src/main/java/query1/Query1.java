@@ -21,6 +21,20 @@ public class Query1 {
 
    public static KStream<Long, ArticleCount[]> executeQuery(KStream<Long, Post> source, int timeInHour, long until){
 
+
+       /*
+         map to (articleID, 1)
+         groupByKey
+         tumbling window 1 hour
+         reduce - sum articles occurrencies
+         suppress to have just the last record in window
+         map to (window start time, ArticleCount)
+         groupByKey
+         tumbling window 1 hour
+         aggregate to compute the top three articles
+         suppress
+         map to (window, array of ArticleCount)
+        */
        KStream<Long, ArticleCount[]> counts = source
                .map((k, v) -> KeyValue.pair(v.getArticleId(), 1L))
                .groupByKey(Grouped.with(Serdes.String(), Serdes.Long()))

@@ -39,6 +39,7 @@ public class MyProcessFunction implements ProcessorSupplier {
                 // retrieve the key-value store named "Counts"
                 kvStore = (KeyValueStore) processorContext.getStateStore("myProcessorState");
 
+                /* DONE: scrittura
 
                 try {
                     FileWriter writer1 = new FileWriter("result/Query3/query3_day.txt");
@@ -50,6 +51,8 @@ public class MyProcessFunction implements ProcessorSupplier {
                 } catch (IOException e) {
                     System.err.format("IOException: %s%n", e);
                 }
+
+                */
 
                 //this.state = processorContext.getStateStore("myProcessorState");
                 // punctuate each second, can access this.state
@@ -99,21 +102,22 @@ public class MyProcessFunction implements ProcessorSupplier {
                 }
                 //System.out.println("ref"+valueState.getTimestamp());
                 if (context.timestamp()-valueState.getTimestamp() >= Config.H24){
-                    //System.out.println("PRIMO IF");
 
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow1());
                     //System.out.println(list);
 
 
+                    /* DONE scrittura file 1
                     try {
                         bw1.write(String.valueOf(context.timestamp()));
+                        bw1.write("\t");
                         bw1.write(list.toString());
                         bw1.write("\n");
                         bw1.flush();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-
+                    */
 
 
                     valueState.joinHashmap();
@@ -124,32 +128,38 @@ public class MyProcessFunction implements ProcessorSupplier {
                 if (valueState.getDay()==7){
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow2());
 
-                    //System.out.println("SECONDO IF");
 
+                    /* DONE scrittura file 2
                     try {
                         bw2.write(String.valueOf(context.timestamp()));
+                        bw2.write("\t");
                         bw2.write(list.toString());
                         bw2.write("\n");
                         bw2.flush();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                    */
 
                     valueState.resetWindow2();
                     valueState.setMonth(valueState.getMonth()+1);
                 }
                 if (valueState.getMonth()==4){
                     List<HashMap<Integer,Score>> list=this.createRank(valueState.gethUserScoreWindow3());
-                    //System.out.println("TERZO IF");
 
+
+                    /*DONE scrittura file 3
                     try {
                         bw3.write(String.valueOf(context.timestamp()));
+                        bw3.write("\t");
                         bw3.write(list.toString());
                         bw3.write("\n");
                         bw3.flush();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+
+                    */
                     valueState.resetWindow3();
                 }
             }

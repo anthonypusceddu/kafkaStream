@@ -10,7 +10,11 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.*;
 import utils.*;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Properties;
 
 import static java.time.Duration.ofMinutes;
@@ -18,15 +22,23 @@ import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded
 
 public class MainQuery2 {
 
-    public static void main(final String[] args) {
+    public static void main(final String[] args) throws IOException {
         final Properties props= KafkaProperties.setProperties(2);
 
+
+        //stream builder
         StreamsBuilder builder = new StreamsBuilder();
 
+
+        //producer's serializer
         KStream<Long, Post> source = builder.stream(Config.TOPIC,
                 Consumed.with(Serdes.Long(), Serdes.serdeFrom(new PostSerializer(),new PostDeserializer())));
 
 
+        /*
+          filter comments with depth 1
+          map to (timeSlot, 1)
+         */
         KStream<Integer, Integer> filter = source
                 .filter(new Predicate<Long, Post>() {
                     @Override
@@ -41,21 +53,34 @@ public class MainQuery2 {
                     }
                 });
 
-        KTable<Windowed<Integer>, Long> count1H = filter
+        /*
+           groupByKey
+           tumbling window 24 hours
+           count elements in window
+           suppress to obtain just the last record
+         */
+        KTable<Windowed<Integer>, Long> count24H = filter
                 .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofHours(24)).until(86460000L).grace(ofMinutes(1)))
                 .count()
                 .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
-        KTable<Windowed<Integer>, Long> count24H = filter
+
+        /*
+          same as above with tumbling window 7 days
+         */
+        KTable<Windowed<Integer>, Long> count7D = filter
                 .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofDays(7)).until(604860000L).grace(ofMinutes(1)))
                 .count()
                 .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
-        KTable<Windowed<Integer>, Long> count7D = filter
+        /*
+          same as above with window 30 days
+         */
+        KTable<Windowed<Integer>, Long> count1M = filter
                 .groupByKey(Grouped.with(Serdes.Integer(), Serdes.Integer()))
                 .windowedBy(TimeWindows.of(Duration.ofDays(30)).until(2678460000L).grace(ofMinutes(1)))
                 .count()
@@ -63,34 +88,63 @@ public class MainQuery2 {
 
 
 
-        //TODO: change retention time to test 7 days and 1 month
-        /*count1H.toStream().to(Config.OutTOPIC1, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
-        count24H.toStream().to(Config.OutTOPIC2, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
-        count7D.toStream().to(Config.OutTOPIC3, Produced.with(Serdes.serdeFrom(new TimeWindowedSerializer<>(), new TimeWindowedDeserializer<>()), Serdes.Long()));
-*/
-        /*count1H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
+        /*
+          DONE: scrittura
+
+        FileWriter writer1 = new FileWriter("result/Query2/query2_day.txt");
+        FileWriter writer2 = new FileWriter("result/Query2/query2_week.txt");
+        FileWriter writer3 = new FileWriter("result/Query2/query2_month.txt");
+        BufferedWriter bw1 = new BufferedWriter(writer1);
+        BufferedWriter bw2 = new BufferedWriter(writer2);
+        BufferedWriter bw3 = new BufferedWriter(writer3);
+
+        count24H.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
             @Override
             public void apply(Windowed<Integer> integerWindowed, Long aLong) {
-                System.out.println(integerWindowed+"\t"+aLong);
+                try {
+                    bw1.write(String.valueOf(integerWindowed.window().start()));
+                    bw1.write("\t");
+                    bw1.write(aLong.toString());
+                    bw1.write("\n");
+                    bw1.flush();
+                } catch (IOException e) {
+                    System.err.format("IOException: %s%n", e);
+                }
             }
-        });*/
+        });
 
-        /*KTable<Windowed<Integer>, Long> count24H = source
-                .filter(new Predicate<Long, Post>() {
-                    @Override
-                    public boolean test(Long aLong, Post post) {
-                        return post.getDepth() == 1;
-                    }
-                })
-                .map(new KeyValueMapper<Long, Post, KeyValue<Integer, Integer>>() {
-                    @Override
-                    public KeyValue<Integer, Integer> apply(Long aLong, Post post) {
-                        return new KeyValue<>(TimeSlot.getTimeSlot(post), 1);
-                    }
-                })
-                .groupByKey()
-                .windowedBy(TimeWindows.of(Duration.ofHours(24)).grace(ofMinutes(1)))
-                .count();*/
+        count7D.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
+            @Override
+            public void apply(Windowed<Integer> integerWindowed, Long aLong) {
+                try {
+                    bw2.write(String.valueOf(integerWindowed.window().start()));
+                    bw2.write("\t");
+                    bw2.write(aLong.toString());
+                    bw2.write("\n");
+                    bw2.flush();
+                } catch (IOException e) {
+                    System.err.format("IOException: %s%n", e);
+                }
+            }
+        });
+
+
+        count1M.toStream().foreach(new ForeachAction<Windowed<Integer>, Long>() {
+            @Override
+            public void apply(Windowed<Integer> integerWindowed, Long aLong) {
+                try {
+                    bw3.write(String.valueOf(integerWindowed.window().start()));
+                    bw3.write("\t");
+                    bw3.write(aLong.toString());
+                    bw3.write("\n");
+                    bw3.flush();
+                } catch (IOException e) {
+                    System.err.format("IOException: %s%n", e);
+                }
+            }
+        });
+
+        */
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         AttachCtrlC.attach(streams);
