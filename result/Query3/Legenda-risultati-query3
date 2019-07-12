@@ -1,0 +1,4 @@
+Il file contiene righe del tipo
+
+window start -- long 
+lista [tuple (commentID=likes, count, score)]
