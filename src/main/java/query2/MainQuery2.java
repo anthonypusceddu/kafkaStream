@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.Properties;
 
 import static java.time.Duration.ofMinutes;
+import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
 
 public class MainQuery2 {
 
@@ -43,19 +44,22 @@ public class MainQuery2 {
         KTable<Windowed<Integer>, Long> count1H = filter
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofHours(24)).until(86460000L).grace(ofMinutes(1)))
-                .count();
+                .count()
+                .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
         KTable<Windowed<Integer>, Long> count24H = filter
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofDays(7)).until(604860000L).grace(ofMinutes(1)))
-                .count();
+                .count()
+                .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
         KTable<Windowed<Integer>, Long> count7D = filter
                 .groupByKey()
                 .windowedBy(TimeWindows.of(Duration.ofDays(30)).until(2678460000L).grace(ofMinutes(1)))
-                .count();
+                .count()
+                .suppress(Suppressed.untilWindowCloses(unbounded()));
 
 
 
